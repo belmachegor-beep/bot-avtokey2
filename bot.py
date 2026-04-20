@@ -2,8 +2,8 @@ import telebot
 from telebot import types
 import os
 
-TOKEN = "8759599601:AAGOQ0h3UJkz14Qur_Gm2oTaSvEAzaOTerk"
-ADMIN_ID = 6238864740  # твой ID
+TOKEN = os.getenv("8759599601:AAGOQ0h3UJkz14Qur_Gm2oTaSvEAzaOTerk")
+ADMIN_ID = 6238864740
 
 bot = telebot.TeleBot(TOKEN)
 
@@ -11,8 +11,18 @@ user_data = {}
 
 print("Бот запущен...")
 
+# 🔥 СБРОС WEBHOOK (ВАЖНО)
+bot.delete_webhook()
+
+# 🚀 ПРОВЕРКА (бот отвечает всегда)
+@bot.message_handler(func=lambda message: True)
+def debug(message):
+    if message.text == "/start":
+        start(message)
+    else:
+        bot.send_message(message.chat.id, "Я живой 🚀 Напиши /start")
+
 # 🚀 СТАРТ
-@bot.message_handler(commands=['start'])
 def start(message):
     markup = types.InlineKeyboardMarkup()
 
@@ -33,7 +43,7 @@ def start(message):
 ⏱ Среднее время выезда: <b>15–30 минут</b>  
 ⏰ Работаем <b>24/7</b>  
 
-Нажмите кнопку ниже, чтобы оставить заявку 👇
+Нажмите кнопку ниже 👇
 """
 
     try:
@@ -53,7 +63,7 @@ def start(message):
             reply_markup=markup
         )
 
-# 👉 старт кнопка
+# 👉 кнопка старт
 @bot.callback_query_handler(func=lambda call: call.data == "start_work")
 def start_work(call):
     user_data[call.message.chat.id] = {}
@@ -64,11 +74,7 @@ def start_work(call):
     markup.row("🆘 Восстановление утерянных ключей")
     markup.row("⚙️ Ремонт системы иммобилайзера")
 
-    bot.send_message(
-        call.message.chat.id,
-        "Выберите, пожалуйста, услугу:",
-        reply_markup=markup
-    )
+    bot.send_message(call.message.chat.id, "Выберите услугу:", reply_markup=markup)
 
 # выбор услуги
 @bot.message_handler(func=lambda message: message.text in [
@@ -79,41 +85,36 @@ def start_work(call):
 ])
 def choose_service(message):
     user_data[message.chat.id]['service'] = message.text
-
-    bot.send_message(message.chat.id, "Как к Вам можно обращаться?")
+    bot.send_message(message.chat.id, "Ваше имя:")
     bot.register_next_step_handler(message, get_name)
 
 def get_name(message):
     user_data[message.chat.id]['name'] = message.text
-    bot.send_message(message.chat.id, "Укажите номер телефона:")
+    bot.send_message(message.chat.id, "Телефон:")
     bot.register_next_step_handler(message, get_phone)
 
 def get_phone(message):
     user_data[message.chat.id]['phone'] = message.text
-    bot.send_message(message.chat.id, "Марка, модель и год автомобиля:")
+    bot.send_message(message.chat.id, "Марка, модель и год авто:")
     bot.register_next_step_handler(message, get_car)
 
 def get_car(message):
     user_data[message.chat.id]['car'] = message.text
-    bot.send_message(message.chat.id, "Опишите ситуацию:")
+    bot.send_message(message.chat.id, "Опишите проблему:")
     bot.register_next_step_handler(message, get_problem)
 
 def get_problem(message):
     user_data[message.chat.id]['problem'] = message.text
 
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    geo_btn = types.KeyboardButton("📍 Отправить геолокацию", request_location=True)
+    geo = types.KeyboardButton("📍 Геолокация", request_location=True)
 
-    markup.add(geo_btn)
-    markup.add("✍️ Ввести адрес вручную")
+    markup.add(geo)
+    markup.add("✍️ Ввести адрес")
 
-    bot.send_message(
-        message.chat.id,
-        "Укажите местоположение:",
-        reply_markup=markup
-    )
+    bot.send_message(message.chat.id, "Укажите адрес:", reply_markup=markup)
 
-# геолокация
+# гео
 @bot.message_handler(content_types=['location'])
 def get_location(message):
     data = user_data.get(message.chat.id, {})
@@ -125,9 +126,9 @@ def get_location(message):
 
     send_request(data, link, message)
 
-# ручной ввод
-@bot.message_handler(func=lambda message: message.text == "✍️ Ввести адрес вручную")
-def manual_address(message):
+# вручную
+@bot.message_handler(func=lambda message: message.text == "✍️ Ввести адрес")
+def manual(message):
     bot.send_message(message.chat.id, "Введите адрес:")
     bot.register_next_step_handler(message, save_address)
 
@@ -139,16 +140,16 @@ def save_address(message):
 
     send_request(data, link, message)
 
-# отправка заявки
+# отправка
 def send_request(data, link, message):
     text = f"""
 🚗 НОВАЯ ЗАЯВКА
 
-🛠 Услуга: {data.get('service')}
-👤 Имя: {data.get('name')}
-📞 Телефон: {data.get('phone')}
-🚘 Авто: {data.get('car')}
-⚠️ Ситуация: {data.get('problem')}
+🛠 {data.get('service')}
+👤 {data.get('name')}
+📞 {data.get('phone')}
+🚘 {data.get('car')}
+⚠️ {data.get('problem')}
 
 📍 {link}
 """
@@ -156,11 +157,12 @@ def send_request(data, link, message):
     try:
         bot.send_message(ADMIN_ID, text)
     except Exception as e:
-        print("Ошибка:", e)
+        print("Ошибка отправки:", e)
 
     bot.send_message(
         message.chat.id,
-        "✅ Заявка принята!\n\n🚗 Мастер уже получает информацию\n📞 Свяжемся с вами в течение 5–10 минут"
+        "✅ Заявка принята!\nСвяжемся с вами через 5–10 минут"
     )
 
+# запуск
 bot.infinity_polling(timeout=30, long_polling_timeout=30)
